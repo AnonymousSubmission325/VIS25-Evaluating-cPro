@@ -1,0 +1,102 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import torch
+from sklearn.datasets import load_wine
+from sklearn.metrics.pairwise import cosine_distances
+
+# cPro implementation with Adam optimizer
+class AdamCircularProjectionResult:
+    def __init__(self, embedding, circle_x, circle_y, loss_records, stress):
+        self.embedding = embedding
+        self.circle_x = circle_x
+        self.circle_y = circle_y
+        self.loss_records = loss_records
+        self.stress = stress
+
+def circular_projection_adam(points, lr=0.1, maxiter=100):
+    """
+    Applies the cPro algorithm using Adam optimizer.
+
+    Parameters:
+    ----------
+    points : array-like, shape (n_samples, n_features)
+        High-dimensional input data points.
+    lr : float, optional (default=0.1)
+        Learning rate for the Adam optimizer.
+    maxiter : int, optional (default=100)
+        Maximum number of iterations.
+
+    Returns:
+    -------
+    AdamCircularProjectionResult : object
+        Contains the final embedding, loss history, and stress value.
+    """
+    points = torch.tensor(points, dtype=torch.float32)
+    n = points.shape[0]
+
+    # Center the data
+    shift_point = torch.mean(points, dim=0)
+    points = points - shift_point
+
+    # Compute high-dimensional cosine distance matrix
+    hd_dist_mat = cosine_distances(points.numpy())
+    hd_dist_mat = torch.tensor(hd_dist_mat / 2, dtype=torch.float32)
+
+    # Initialize learnable embedding
+    embedding = torch.randn(n, requires_grad=True)
+    optimizer = torch.optim.Adam([embedding], lr=lr)
+
+    loss_records = []
+
+    def compute_ld_dist_matrix(ld_points):
+        ld_points = ld_points.view(n, 1)
+        dist_matrix = torch.cdist(ld_points, ld_points, p=1)
+        return torch.minimum(dist_matrix, 1 - dist_matrix)
+
+    def loss(ld_points):
+        ld_dist_mat = compute_ld_dist_matrix(ld_points)
+        diff = torch.abs(hd_dist_mat - (2 * ld_dist_mat))
+        return diff.sum() / 2
+
+    for i in range(maxiter):
+        optimizer.zero_grad()
+        total_loss = loss(embedding)
+        total_loss.backward()
+        optimizer.step()
+        loss_records.append(total_loss.item())
+
+    # Compute stress
+    ld_dist_matrix = compute_ld_dist_matrix(embedding).detach().numpy()
+    stress = np.sqrt(np.sum((hd_dist_mat.numpy() - 2 * ld_dist_matrix) ** 2) / np.sum(hd_dist_mat.numpy() ** 2))
+
+    # Map embedding to circular coordinates
+    embedding_np = embedding.detach().numpy()
+    circle_x = np.cos(embedding_np * 2 * np.pi)
+    circle_y = np.sin(embedding_np * 2 * np.pi)
+
+    return AdamCircularProjectionResult(embedding_np, circle_x, circle_y, loss_records, stress)
+
+# Main execution
+if __name__ == "__main__":
+    # Load Wine dataset
+    wine_data = load_wine()
+    points = wine_data.data
+
+    # Apply cPro
+    print("Running cPro with Adam optimizer...")
+    result = circular_projection_adam(points, lr=0.1, maxiter=100)
+
+    # Plot the results
+    plt.figure(figsize=(8, 8))
+    plt.scatter(result.circle_x, result.circle_y, c=wine_data.target, cmap="viridis", edgecolor="k", s=50)
+    plt.title("cPro Projection of the Wine Dataset")
+    plt.xlabel("Circular X")
+    plt.ylabel("Circular Y")
+    plt.axis("equal")
+    plt.colorbar(label="Target Class")
+    plt.tight_layout()
+    plt.savefig("cpro_wine_projection.png")
+    plt.show()
+
+    print(f"Projection stress: {result.stress:.4f}")
+    print("Projection complete. Plot saved as 'cpro_wine_projection.png'.")
