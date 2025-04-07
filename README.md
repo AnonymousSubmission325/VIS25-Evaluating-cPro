@@ -81,6 +81,7 @@ After running `main.py`, results are written to:
 - All input datasets must include a `target` column for supervised evaluation.
 - All projection methods must accept and return 2D arrays.
 - The `max_time` parameter in `main.py` restricts the runtime per method.
+- The three largest data files were sampled due to upload limits. The author will provide the complete data via the upload link by request. 
 
 ---
 
