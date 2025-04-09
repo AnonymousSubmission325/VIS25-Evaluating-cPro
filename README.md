@@ -4,9 +4,8 @@ This repository provides a modular evaluation pipeline for comparing and analyzi
 
 ## Contents
 
-- **main.py**: Entry point for executing the complete evaluation pipeline.
+- **scr/main.py**: Entry point for executing the complete evaluation pipeline.
 - **src/**: Contains the core logic, dataset processing scripts, projection methods, evaluation utilities, and plotting routines.
-- **datasets/**: Preprocessed datasets used for evaluation.
 - **results/**: Automatically generated results, including evaluation metrics and visualizations.
 
 ---
